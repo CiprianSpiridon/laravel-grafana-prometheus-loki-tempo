@@ -1,6 +1,6 @@
 # Laravel Grafana Prometheus Loki Tempo
 
-A complete observability stack for Laravel applications using Grafana, Prometheus, Loki, and Tempo.
+A complete observability stack for Laravel applications using Grafana, Prometheus, Loki, and Tempo with OpenTelemetry integration.
 
 ## Stack Components
 
@@ -8,7 +8,7 @@ A complete observability stack for Laravel applications using Grafana, Prometheu
 - **Prometheus**: Metrics collection and storage
 - **Grafana**: Visualization and dashboarding platform
 - **Loki**: Log aggregation system
-- **Tempo**: Distributed tracing backend
+- **Tempo**: Distributed tracing backend with OpenTelemetry support
 - **MySQL**: Database server with MySQL exporter for metrics
 - **Redis**: In-memory data store with Redis exporter for metrics
 - **DynamoDB Local**: Local DynamoDB implementation
@@ -24,7 +24,7 @@ A complete observability stack for Laravel applications using Grafana, Prometheu
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/laravel-grafana-prometheus-loki-tempo.git
+   git clone https://github.com/CiprianSpiridon/laravel-grafana-prometheus-loki-tempo.git
    cd laravel-grafana-prometheus-loki-tempo
    ```
 
@@ -63,10 +63,11 @@ Grafana comes with several pre-configured dashboards:
 
 1. **Laravel Application Overview**: Overview of Laravel application metrics
 2. **Laravel Logs Dashboard**: Visualization of Laravel logs from Loki
-3. **Laravel Horizon**: Monitoring for Laravel Horizon queues and workers
-4. **MySQL Overview**: MySQL server metrics and performance monitoring
-5. **Redis Dashboard**: Redis server metrics and monitoring
-6. **Prometheus Overview**: Monitoring for the Prometheus server itself
+3. **Laravel Traces Dashboard**: Visualization of distributed traces from Tempo
+4. **Laravel Horizon**: Monitoring for Laravel Horizon queues and workers
+5. **MySQL Overview**: MySQL server metrics and performance monitoring
+6. **Redis Dashboard**: Redis server metrics and monitoring
+7. **Prometheus Overview**: Monitoring for the Prometheus server itself
 
 ## Observability Features
 
@@ -80,10 +81,27 @@ Grafana comes with several pre-configured dashboards:
 - Structured log parsing and querying
 - Log correlation with metrics and traces
 
-### Traces (Tempo)
-- Distributed request tracing
+### Traces (Tempo with OpenTelemetry)
+- Distributed request tracing using OpenTelemetry protocol
+- Auto-instrumentation via PHP OpenTelemetry extension
 - Performance bottleneck identification
 - Integration with logs and metrics
+
+## OpenTelemetry Integration
+
+This stack includes full OpenTelemetry integration for PHP:
+
+- **Auto-instrumentation**: PHP extension for automatic tracing
+- **Manual instrumentation**: Service provider for custom span creation
+- **Configuration**: Environment variables for controlling trace sampling and export
+- **Trace Viewing**: Tempo backend with Grafana for visualization
+
+Test the tracing with the included endpoint:
+```bash
+curl http://localhost:3000/api/test-traces
+```
+
+Then view traces in Grafana's Explore view by selecting the Tempo data source.
 
 ## License
 
