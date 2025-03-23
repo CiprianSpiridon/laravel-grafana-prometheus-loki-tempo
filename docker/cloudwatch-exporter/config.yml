@@ -1,0 +1,63 @@
+---
+region: ${AWS_REGION}
+metrics:
+  # DynamoDB metrics
+  - aws_namespace: AWS/DynamoDB
+    aws_metric_name: ConsumedReadCapacityUnits
+    aws_dimensions: [TableName]
+    aws_statistics: [Sum, Average]
+
+  - aws_namespace: AWS/DynamoDB
+    aws_metric_name: ConsumedWriteCapacityUnits
+    aws_dimensions: [TableName]
+    aws_statistics: [Sum, Average]
+
+  - aws_namespace: AWS/DynamoDB
+    aws_metric_name: ProvisionedReadCapacityUnits
+    aws_dimensions: [TableName]
+    aws_statistics: [Average]
+
+  - aws_namespace: AWS/DynamoDB
+    aws_metric_name: ProvisionedWriteCapacityUnits
+    aws_dimensions: [TableName]
+    aws_statistics: [Average]
+
+  - aws_namespace: AWS/DynamoDB
+    aws_metric_name: ReadThrottleEvents
+    aws_dimensions: [TableName]
+    aws_statistics: [Sum]
+
+  - aws_namespace: AWS/DynamoDB
+    aws_metric_name: WriteThrottleEvents
+    aws_dimensions: [TableName]
+    aws_statistics: [Sum]
+
+  - aws_namespace: AWS/DynamoDB
+    aws_metric_name: SuccessfulRequestLatency
+    aws_dimensions: [TableName, Operation]
+    aws_statistics: [Average, Maximum]
+
+  - aws_namespace: AWS/DynamoDB
+    aws_metric_name: ThrottledRequests
+    aws_dimensions: [TableName, Operation]
+    aws_statistics: [Sum]
+
+  - aws_namespace: AWS/DynamoDB
+    aws_metric_name: SystemErrors
+    aws_dimensions: [TableName, Operation]
+    aws_statistics: [Sum]
+
+  - aws_namespace: AWS/DynamoDB
+    aws_metric_name: UserErrors
+    aws_dimensions: [TableName]
+    aws_statistics: [Sum]
+
+  - aws_namespace: AWS/DynamoDB
+    aws_metric_name: ReturnedItemCount
+    aws_dimensions: [TableName, Operation]
+    aws_statistics: [Sum, Average]
+
+  - aws_namespace: AWS/DynamoDB
+    aws_metric_name: ConditionalCheckFailedRequests
+    aws_dimensions: [TableName]
+    aws_statistics: [Sum] 

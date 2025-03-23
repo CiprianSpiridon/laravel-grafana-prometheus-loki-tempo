@@ -1,0 +1,282 @@
+services:
+    # FrankenPHP Service for Web with Octane and Horizon (Development)
+  app:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+      cache_from:
+        - dunglas/frankenphp:latest-php8.2-alpine
+    container_name: ${APP_NAME:-grafana-prometheus-loki-tempo}-dev
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+      - "443:443"
+      - "9003:9003" # Xdebug port
+      - "2019:2019" # FrankenPHP admin port
+    volumes:
+      - ./:/app
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+      - composer-cache:/root/.composer/cache
+    networks:
+      - app-network
+    depends_on:
+      - redis
+      - dynamodb
+    environment:
+      - APP_NAME=${APP_NAME:-grafana-prometheus-loki-tempo}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - DYNAMODB_ENDPOINT=http://dynamodb:${DYNAMODB_PORT}
+      - DYNAMODB_TABLE=ratings_and_reviews
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE:-grafana_prometheus_loki_tempo}
+      - DB_USERNAME=${DB_USERNAME:-mumzworld}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - OCTANE_SERVER=frankenphp
+      - QUEUE_CONNECTION=redis
+      - QUEUE_DRIVER=redis
+      - HORIZON_ENVIRONMENT=local
+      - APP_ENV=local
+      - HORIZON_PREFIX=local
+  # FrankenPHP Service for Web with Octane and Horizon (Production)
+  redis:
+    image: redis:alpine
+    container_name: ${APP_NAME:-grafana-prometheus-loki-tempo}-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+
+  # Redis Commander - Redis Admin UI
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ${APP_NAME:-grafana-prometheus-loki-tempo}-redis-admin
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    networks:
+      - app-network
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+      - HTTP_USER=admin
+      - HTTP_PASSWORD=admin
+
+  # DynamoDB Local
+  dynamodb:
+    env_file: .env
+    image: amazon/dynamodb-local:latest
+    container_name: ${APP_NAME:-grafana-prometheus-loki-tempo}-dynamodb
+    restart: unless-stopped
+    ports:
+      - "${DYNAMODB_PORT}:8000"
+    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /home/dynamodblocal/data"
+    volumes:
+      - ./docker/dynamodb/data:/home/dynamodblocal/data
+    networks:
+      - app-network
+
+  # DynamoDB Admin
+  dynamodb-admin:
+    env_file: .env
+    image: aaronshaf/dynamodb-admin
+    container_name: ${APP_NAME:-grafana-prometheus-loki-tempo}-dynamodb-admin
+    restart: unless-stopped
+    ports:
+      - "${DYNAMODB_ADMIN_PORT}:8001"
+    environment:
+      - DYNAMO_ENDPOINT=http://dynamodb:${DYNAMODB_PORT}
+    depends_on:
+      - dynamodb
+    networks:
+      - app-network
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: ${APP_NAME:-grafana-prometheus-loki-tempo}-mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=${DB_DATABASE:-grafana_prometheus_loki_tempo}
+      - MYSQL_USER=${DB_USERNAME:-mumzworld}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-password}
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-rootpassword}
+    volumes:
+      - ./docker/mysql/data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - app-network
+    command: --default-authentication-plugin=mysql_native_password
+      
+  # phpMyAdmin for MySQL management
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: ${APP_NAME:-grafana-prometheus-loki-tempo}-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - PMA_HOST=mysql
+      - PMA_PORT=3306
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-rootpassword}
+    networks:
+      - app-network
+    depends_on:
+      - mysql
+
+  # Prometheus - Monitoring System
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ${APP_NAME:-grafana-prometheus-loki-tempo}-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - app-network
+
+  # Grafana - Analytics and Monitoring Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ${APP_NAME:-grafana-prometheus-loki-tempo}-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+      - ./docker/grafana/dashboards:/etc/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - app-network
+    depends_on:
+      - prometheus
+
+  # Loki - Log Aggregation System
+  loki:
+    image: grafana/loki:latest
+    container_name: ${APP_NAME:-grafana-prometheus-loki-tempo}-loki
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki-data:/loki
+      - ./docker/loki/local-config.yaml:/etc/loki/local-config.yaml
+    networks:
+      - app-network
+
+  # Promtail - Log Collector for Loki
+  promtail:
+    image: grafana/promtail:latest
+    container_name: ${APP_NAME:-grafana-prometheus-loki-tempo}-promtail
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./storage/logs:/var/log/app
+      - ./docker/promtail/config.yml:/etc/promtail/config.yml
+    networks:
+      - app-network
+    depends_on:
+      - loki
+
+  # Tempo - Distributed Tracing Backend
+  tempo:
+    image: grafana/tempo:latest
+    container_name: ${APP_NAME:-grafana-prometheus-loki-tempo}-tempo
+    command: -config.file=/etc/tempo/tempo-config.yaml
+    ports:
+      - "3200:3200" # Tempo
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+    volumes:
+      - tempo-data:/var/lib/tempo
+      - ./docker/tempo/tempo-config.yaml:/etc/tempo/tempo-config.yaml
+    networks:
+      - app-network
+
+  # Redis Exporter - Redis metrics for Prometheus
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: ${APP_NAME:-grafana-prometheus-loki-tempo}-redis-exporter
+    restart: unless-stopped
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis:6379
+    networks:
+      - app-network
+    depends_on:
+      - redis
+
+  # MySQL Exporter - MySQL metrics for Prometheus
+  mysql-exporter:
+    image: prom/mysqld-exporter:latest
+    container_name: ${APP_NAME:-grafana-prometheus-loki-tempo}-mysql-exporter
+    restart: unless-stopped
+    ports:
+      - "9104:9104"
+    environment:
+      - DATA_SOURCE_NAME=root:${DB_ROOT_PASSWORD:-rootpassword}@(mysql:3306)/
+    volumes:
+      - ./docker/mysql-exporter/my.cnf:/config/.my.cnf:ro
+    command:
+      - '--config.my-cnf=/config/.my.cnf'
+      - '--collect.info_schema.tables'
+      - '--collect.info_schema.processlist'
+      - '--collect.global_status'
+      - '--collect.global_variables'
+    networks:
+      - app-network
+    depends_on:
+      - mysql
+
+  # CloudWatch Exporter - DynamoDB metrics for Prometheus - 
+  # IMPORTANT - will work only in the cloud as dynamodb local doesn't export statistics
+  # cloudwatch-exporter:
+  #   image: prom/cloudwatch-exporter:latest
+  #   container_name: ${APP_NAME:-grafana-prometheus-loki-tempo}-cloudwatch-exporter
+  #   restart: unless-stopped
+  #   ports:
+  #     - "9106:9106"
+  #   volumes:
+  #     - ./docker/cloudwatch-exporter/config.yml:/config/config.yml
+  #   networks:
+  #     - app-network
+  #   environment:
+  #     - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-dynamodblocal}
+  #     - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-secret}
+  #     - AWS_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+
+networks:
+  app-network:
+    driver: bridge 
+
+
+volumes:
+  redis-data:
+  composer-cache:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+  tempo-data:
