@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Log;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,10 +27,29 @@ Route::get('/health', function () {
     ]);
 });
 
-Route::get('/metrics', function () {
+// Test endpoint for generating trace data
+Route::get('/test-traces', function () {
+    // Generate a log entry for Loki
+    Log::info('Test trace endpoint accessed', ['timestamp' => now()->toIso8601String()]);
+
+    // Simulate some processing time
+    usleep(rand(100000, 500000));
+
+    // Simulate a database query
+    $dbQueryTime = rand(50, 200);
+    usleep($dbQueryTime * 1000);
+
+    // Simulate API call
+    $apiCallTime = rand(200, 600);
+    usleep($apiCallTime * 1000);
+
     return response()->json([
-        'cpu' => rand(1, 100),
-        'memory' => rand(10, 80),
-        'disk' => rand(20, 90),
+        'message' => 'Test trace generated',
+        'timestamp' => now()->toIso8601String(),
+        'simulated_times' => [
+            'processing' => rand(100, 500),
+            'database_query' => $dbQueryTime,
+            'api_call' => $apiCallTime
+        ]
     ]);
 });
