@@ -15,5 +15,5 @@ scrape_configs:
           - localhost
         labels:
           job: laravel
-          __path__: /var/log/app/*.log
+          __path__: /app/storage/logs/*.log
           app: ${APP_NAME:-grafana-prometheus-loki-tempo} 
